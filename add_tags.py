@@ -7,7 +7,7 @@ def main():
     tagged = dict()
 
     # collect pose/mmpose related papers
-    data = pd.read_csv('tags/mmpose 顶会论文引用情况 - MMPose.csv')
+    data = pd.read_csv('stats/mmpose_stats.csv')
     data = data[(data['relevant'] == 1) | (data['mmpose'] == 1) |
                 (data['alphapose(code)'] == 1) | (data['openpose(code)'] == 1)
                 | (data['detectron2/detr'] == 1) | (data['hrnet (code)'] == 1)
@@ -40,7 +40,7 @@ def main():
         tagged[paper['title']] = paper
 
     # collect action/mmaction2 related papers
-    data = pd.read_csv('tags/mmaction2 顶会论文引用情况 - MMAction2.csv')
+    data = pd.read_csv('stats/mmaction2_stats.csv')
     data = data[(data['relevant'] == 1) | (data['mmaction2'] == 1) |
                 (data['slowfast'] == 1)]
 
