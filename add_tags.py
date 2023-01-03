@@ -8,29 +8,58 @@ def main():
 
     # collect pose/mmpose related papers
     data = pd.read_csv('tags/mmpose 顶会论文引用情况 - MMPose.csv')
-    data = data[(data['relevant'] == 1) | (data['mmpose'] == 1)]
+    data = data[(data['relevant'] == 1) | (data['mmpose'] == 1) |
+                (data['alphapose(code)'] == 1) | (data['openpose(code)'] == 1)
+                | (data['detectron2/detr'] == 1) | (data['hrnet (code)'] == 1)
+                | (data['videopose3d (code)'] == 1)]
 
     for i in range(len(data)):
         item = data.iloc[i]
         paper = {
             'title': item['title'],
-            'area_tag': 'pose estimation' if item['relevant'] else None,
-            'codebase_tag': 'mmpose' if item['mmpose'] else None,
+            'area_tag': 'pose estimation' if item['relevant'] == 1 else None,
+            'codebase_tag': None,
         }
+
+        codebases = []
+        if item['mmpose'] == 1:
+            codebases.append('mmpose')
+        if item['alphapose(code)'] == 1:
+            codebases.append('alphapose')
+        if item['openpose(code)'] == 1:
+            codebases.append('openpose')
+        if item['detectron2/detr'] == 1:
+            codebases.append('detectron2/detr')
+        if item['hrnet (code)'] == 1:
+            codebases.append('hrnet')
+        if item['videopose3d (code)'] == 1:
+            codebases.append('videopose3d')
+        if codebases:
+            paper['codebase_tag'] = '|'.join(codebases)
 
         tagged[paper['title']] = paper
 
     # collect action/mmaction2 related papers
     data = pd.read_csv('tags/mmaction2 顶会论文引用情况 - MMAction2.csv')
-    data = data[(data['relevant'] == 1) | (data['mmaction2'] == 1)]
+    data = data[(data['relevant'] == 1) | (data['mmaction2'] == 1) |
+                (data['slowfast'] == 1)]
 
     for i in range(len(data)):
         item = data.iloc[i]
         paper = {
             'title': item['title'],
-            'area_tag': 'video understanding' if item['relevant'] else None,
-            'codebase_tag': 'mmaction2' if item['mmaction2'] else None,
+            'area_tag':
+            'video understanding' if item['relevant'] == 1 else None,
+            'codebase_tag': None,
         }
+
+        codebases = []
+        if item['mmaction2'] == 1:
+            codebases.append('mmaction2')
+        if item['slowfast'] == 1:
+            codebases.append('slowfast')
+        if codebases:
+            paper['codebase_tag'] = '|'.join(codebases)
 
         if paper['title'] in tagged:
             print(f'duplicated paper: {paper["title"]}')
