@@ -2,3 +2,7 @@
 *.csv
 *.pdf
 *.tmp
+out*
+data
+*.txt
+.vscode

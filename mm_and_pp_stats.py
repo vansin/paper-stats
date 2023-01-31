@@ -11,7 +11,25 @@ import tqdm
 import wget
 from pdfminer.pdfparser import PDFSyntaxError
 
+import multiprocessing
 
+import os
+
+def print_log(log):
+
+    print(log)
+
+    fs_log = open('log2.txt', 'a+')
+    fs_log.write(str(log)+'\r\n')
+    fs_log.close()
+
+# os.remove('log1.txt')
+os.remove('log2.txt')
+
+
+cores = multiprocessing.cpu_count()
+processes=128
+print_log(cores)
 @dataclass
 class paper_info:
     title: str
@@ -38,7 +56,7 @@ def load_paper_info(index_path: str = 'index'):
     papers = []
 
     for fn in glob.glob(osp.join(index_path, '*.csv')):
-        print(f'load paper index from {fn}')
+        print_log(f'load paper index from {fn}')
         df = pd.read_csv(fn)
 
         for _, item in tqdm.tqdm(df.iterrows(), total=len(df) - 1):
@@ -60,7 +78,7 @@ def load_paper_info(index_path: str = 'index'):
 
             papers.append(paper)
 
-    print(f'load {len(papers)} papers in total.')
+    print_log(f'load {len(papers)} papers in total.')
     return papers
 
 
@@ -69,7 +87,7 @@ def _download(args):
     url = paper.pdf_url
     path = paper.pdf_path
     try:
-        print(f'{idx}/{total}')
+        print_log(f'{idx}/{total}')
         wget.download(url, path, bar=None)
         return None
     except:  # noqa
@@ -81,15 +99,15 @@ def download_missing_pdf(papers):
     missing_list = [
         paper for paper in papers if not osp.isfile(paper.pdf_path)
     ]
-    print(f'found {len(missing_list)} missing papers.')
+    print_log(f'found {len(missing_list)} missing papers.')
 
-    with Pool() as p:
+    with Pool(processes=processes) as p:
         total = len(missing_list)
         tasks = [(i, total, paper) for i, paper in enumerate(missing_list)]
         failed_list = [r for r in p.map(_download, tasks) if r is not None]
 
     if failed_list:
-        print(f'failed to download {len(failed_list)} papers.')
+        print_log(f'failed to download {len(failed_list)} papers.')
         with open('failed_list.pkl', 'wb') as f:
             pickle.dump(failed_list, f)
 
@@ -137,14 +155,16 @@ def search_kwgroups_in_pdf(pdf_path: str,
                                     result[name] = True
                                     break
         except PDFSyntaxError:
-            print(f'fail to parse: {pdf_path}')
+            print_log(f'fail to parse: {pdf_path}')
 
     return result
 
 
 def _search_in_pdf(args):
     idx, total, keyword_groups, pdf_path = args
-    print(f'{idx}/{total}')
+    print_log(f'{idx}/{total}')
+
+    
     return search_kwgroups_in_pdf(pdf_path, keyword_groups)
 
 
@@ -155,36 +175,26 @@ def main():
 
     # search in title/abstract
     def _valid(paper):
-
-        strong_pos_kws = [
-            'action recognition',
-            'action localization',
-            'video understanding',
-            'video recognition',
-        ]
-
         pos_kws = [
-            'action',
-            'spatio-temporal',
-            'spatial-temporal',
-            'spatiotemporal',
+            'pose estimation',
+            'pose regression',
+            'keypoint',
+            'landmark',
+            'pose tracking',
         ]
 
         neg_kws = [
-            'diffraction', 'action prediction', 'interaction',
-            'object detection', 'object tracking', 'distraction', 'extraction',
-            'action assessment', 'motion prediction', 'reinforcement learning',
-            'segmentation', 'point cloud', 'abstraction',
-            'action unit recognition'
+            'object pose estimation',
+            '6d',
+            '6 dof',
+            'camera pose',
+            'pose and shape',
+            'shape and pose',
         ]
 
         text = paper.title.lower()
         # if isinstance(paper.abstract, str):
         #     text = text + ' ' + paper.abstract.lower()
-
-        for kw in strong_pos_kws:
-            if kw in text:
-                return True
 
         for kw in neg_kws:
             if kw in text:
@@ -196,37 +206,51 @@ def main():
 
         return False
 
-    papers = list(filter(_valid, papers))
+    # papers = list(filter(_valid, papers))
 
     # search in PDF
     keyword_groups = {
-        '_pos0':
-        ['kinetics', 'something-something', 'ntu', 'ucf101', 'activitynet'],
-        '_neg0': [],
-        'mmaction': ['mmaction'],
-        'mmaction2': ['mmaction2', 'mmaction'],
-        'openmmlab': ['openmmlab', 'open mmlab', 'open-mmlab'],
+        '_pose_pos0':
+        ['pose estimation', 'landmark', 'pose tracking', 'pose regression'],
+        '_pose_pos1': ['keypoints', 'joints', 'landmark'],
+        '_pose_pos2': ['human', 'animal', 'face', 'hand'],
+        '_pose_neg0': ['object pose estimation', '6D', '6 DoF', 'camera pose'],
+        'mmpose': ['mmpose'],
         'mmdetection': ['mmdetection', 'mmdet'],
-        
-        'slowfast': ['slowfast'],
-        'pyslowfast': ['pyslowfast', 'facebookresearch/slowfast'],
-        'torchvideo': ['torchvideo', 'torch video'],
-        'paddlevideo': ['paddlevideo', 'paddle video'],
+        'mmocr': ['mmocr'],
+        'mmcv': ['mmcv'],
+        'openmmlab': ['openmmlab', 'open mmlab', 'open-mmlab'],
+        'alphapose': ['alphapose', 'alpha pose'],
+        'openpose': ['openpose', 'open pose'],
+        'detectron2/detr': ['detecron2', 'detr'],
+        'mediapipe': ['mediapipe'],
     }
 
     total = len(papers)
+    
+    # print_log("processes:" ,processes)
+
+    print_log('total totaltotaltotaltotaltotaltotaltotaltotaltotaltotaltotaltotaltotaltotaltotaltotal')
     tasks = [(i, total, keyword_groups, paper.pdf_path)
              for i, paper in enumerate(papers)]
-    with Pool() as p:
+    
+    # print_log("processes:" ,processes)
+    with Pool(processes=processes) as p:
+        
         search_results = p.map(_search_in_pdf, tasks)
 
-    with open('mmaction2_search_results.pkl', 'wb') as f:
+
+    print('save search results')
+    with open('mmpose_search_results.pkl', 'wb') as f:
         pickle.dump(search_results, f)
+    print('done saving search results')
 
     matched = []
     for paper, result in zip(papers, search_results):
-        pos_keys = [k for k in result.keys() if k.startswith('_pos')]
-        neg_keys = [k for k in result.keys() if k.startswith('_neg')]
+        
+        print(paper, result)
+        pos_keys = [k for k in result.keys() if k.startswith('_pose_pos')]
+        neg_keys = [k for k in result.keys() if k.startswith('_pose_neg')]
 
         relevant = False
         for key in pos_keys:
@@ -237,13 +261,12 @@ def main():
 
         result['relevant'] = relevant
         result = {k: int(v) for k, v in result.items()}
-        # if any(result.values()):
-        #     matched.append((paper, result))
-        matched.append((paper, result))
+        if any(result.values()):
+            matched.append((paper, result))
 
     for name in matched[0][1].keys():
         count = sum(result[name] for _, result in matched)
-        print(name, count)
+        print_log(f'{name}, {count}')
 
     # save to csv
     paper_dicts = []
@@ -253,7 +276,7 @@ def main():
         paper_dicts.append(d)
 
     df = pd.DataFrame.from_dict(paper_dicts)
-    df.to_csv('mmaction2_stats.csv', index=True, header=True)
+    df.to_csv('mmpose_stats.csv', index=True, header=True)
 
 
 if __name__ == '__main__':

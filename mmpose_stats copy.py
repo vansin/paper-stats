@@ -10,7 +10,7 @@ import pdfplumber
 import tqdm
 import wget
 from pdfminer.pdfparser import PDFSyntaxError
-
+import os
 
 @dataclass
 class paper_info:
@@ -70,9 +70,17 @@ def _download(args):
     path = paper.pdf_path
     try:
         print(f'{idx}/{total}')
+
+        dir = osp.dirname(path)
+
+        if not osp.isdir(dir):
+            os.mkdir(dir)
+
         wget.download(url, path, bar=None)
+        print(f'download {url} to {path}')
         return None
-    except:  # noqa
+    except Exception as e:
+        print(f'fail to download {url} {e}')
         return paper
 
 
@@ -144,7 +152,7 @@ def search_kwgroups_in_pdf(pdf_path: str,
 
 def _search_in_pdf(args):
     idx, total, keyword_groups, pdf_path = args
-    print(f'{idx}/{total}')
+    print(f'{idx}/{total}/{pdf_path}')
     return search_kwgroups_in_pdf(pdf_path, keyword_groups)
 
 
@@ -155,36 +163,26 @@ def main():
 
     # search in title/abstract
     def _valid(paper):
-
-        strong_pos_kws = [
-            'action recognition',
-            'action localization',
-            'video understanding',
-            'video recognition',
-        ]
-
         pos_kws = [
-            'action',
-            'spatio-temporal',
-            'spatial-temporal',
-            'spatiotemporal',
+            'pose estimation',
+            'pose regression',
+            'keypoint',
+            'landmark',
+            'pose tracking',
         ]
 
         neg_kws = [
-            'diffraction', 'action prediction', 'interaction',
-            'object detection', 'object tracking', 'distraction', 'extraction',
-            'action assessment', 'motion prediction', 'reinforcement learning',
-            'segmentation', 'point cloud', 'abstraction',
-            'action unit recognition'
+            'object pose estimation',
+            '6d',
+            '6 dof',
+            'camera pose',
+            'pose and shape',
+            'shape and pose',
         ]
 
         text = paper.title.lower()
         # if isinstance(paper.abstract, str):
         #     text = text + ' ' + paper.abstract.lower()
-
-        for kw in strong_pos_kws:
-            if kw in text:
-                return True
 
         for kw in neg_kws:
             if kw in text:
@@ -200,33 +198,45 @@ def main():
 
     # search in PDF
     keyword_groups = {
-        '_pos0':
-        ['kinetics', 'something-something', 'ntu', 'ucf101', 'activitynet'],
-        '_neg0': [],
-        'mmaction': ['mmaction'],
-        'mmaction2': ['mmaction2', 'mmaction'],
+        '_pose_pos0':
+        ['pose estimation', 'landmark', 'pose tracking', 'pose regression'],
+        '_pose_pos1': ['keypoints', 'joints', 'landmark'],
+        '_pose_pos2': ['human', 'animal', 'face', 'hand'],
+        '_pose_neg0': ['object pose estimation', '6D', '6 DoF', 'camera pose'],
+        'mmpose': ['mmpose'],
         'openmmlab': ['openmmlab', 'open mmlab', 'open-mmlab'],
-        'mmdetection': ['mmdetection', 'mmdet'],
-        
-        'slowfast': ['slowfast'],
-        'pyslowfast': ['pyslowfast', 'facebookresearch/slowfast'],
-        'torchvideo': ['torchvideo', 'torch video'],
-        'paddlevideo': ['paddlevideo', 'paddle video'],
+        'mmocr': ['mmocr'],
+        'mmdetection': ['mmdetection','mmdet'],
+        'mm': ['openmmlab', 'open mmlab', 'open-mmlab'],
+        'alphapose': ['alphapose', 'alpha pose'],
+        'openpose': ['openpose', 'open pose'],
+        'detectron2/detr': ['detecron2', 'detr'],
+        'mediapipe': ['mediapipe'],
     }
 
     total = len(papers)
     tasks = [(i, total, keyword_groups, paper.pdf_path)
              for i, paper in enumerate(papers)]
-    with Pool() as p:
-        search_results = p.map(_search_in_pdf, tasks)
+    # with Pool() as p:
+    #     search_results = p.map(_search_in_pdf, tasks)
 
-    with open('mmaction2_search_results.pkl', 'wb') as f:
+    search_results = []
+
+    for task in tasks:
+        print(task)
+        result = _search_in_pdf(task)
+
+        search_results.append(result)
+
+    print('########################################################################### start###############')
+
+    with open('mmpose_search_results.pkl', 'wb') as f:
         pickle.dump(search_results, f)
 
     matched = []
     for paper, result in zip(papers, search_results):
-        pos_keys = [k for k in result.keys() if k.startswith('_pos')]
-        neg_keys = [k for k in result.keys() if k.startswith('_neg')]
+        pos_keys = [k for k in result.keys() if k.startswith('_pose_pos')]
+        neg_keys = [k for k in result.keys() if k.startswith('_pose_neg')]
 
         relevant = False
         for key in pos_keys:
@@ -237,9 +247,8 @@ def main():
 
         result['relevant'] = relevant
         result = {k: int(v) for k, v in result.items()}
-        # if any(result.values()):
-        #     matched.append((paper, result))
-        matched.append((paper, result))
+        if any(result.values()):
+            matched.append((paper, result))
 
     for name in matched[0][1].keys():
         count = sum(result[name] for _, result in matched)
@@ -253,7 +262,7 @@ def main():
         paper_dicts.append(d)
 
     df = pd.DataFrame.from_dict(paper_dicts)
-    df.to_csv('mmaction2_stats.csv', index=True, header=True)
+    df.to_csv('mmpose_stats.csv', index=True, header=True)
 
 
 if __name__ == '__main__':

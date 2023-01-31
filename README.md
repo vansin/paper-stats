@@ -28,3 +28,9 @@ python mmaction2_stats.py
 # generate paper index with tags
 python add_tags.py
 ```
+
+### 多机多进程
+
+```shell
+srun -p mm_model -n 1024 -c 1 --ntasks-per-node 64 python rank.py
+```
