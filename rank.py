@@ -214,7 +214,7 @@ def main():
         'PLSC': ['PLSC'],
 
         'mmdetection': ['mmdetection', 'mmdet', 'mmrotate', 'mmyolo'],
-        'detectron2/detr': ['detecron2', 'detr'],
+        'detectron': ['detectron', 'detectron2'],
         'PaddleDetection': ['PaddleDetection'],
         
         'MMDetection3D': ['MMDetection3D', 'mmdet3d'],
@@ -297,9 +297,14 @@ def main():
         if any(result.values()):
             matched.append((paper, result))
 
-    for name in matched[0][1].keys():
-        count = sum(result[name] for _, result in matched)
-        print(name, count)
+    try:
+        for name in matched[0][1].keys():
+            count = sum(result[name] for _, result in matched)
+            print(name, count)
+    except:
+        print(matched)
+        print('no matched paper error')
+
 
     # save to csv
     paper_dicts = []
@@ -314,7 +319,7 @@ def main():
     # df = pd.DataFrame.from_dict(paper_dicts)
     # df.to_csv(f'mmpose_stats_{proc_id}.csv', index=True, header=True)
 
-    # srun -p mm_model -n 1024 -c 1 --ntasks-per-node 36 python rank.py
+    # srun -p mm_model -n 1024 -c 1 --ntasks-per-node 64 python rank.py
 
 if __name__ == '__main__':
 
